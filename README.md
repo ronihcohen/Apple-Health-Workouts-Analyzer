@@ -48,6 +48,8 @@ python workouts.py apple_health_export_2025-12-14.csv runs_output.csv
 # produces runs_output.csv (one row per workout)
 ```
 
+Note: If the output file already exists, `workouts.py` will append only new workouts and avoid adding duplicates. The output now includes `startDate` and `endDate` (in addition to `date`) to enable precise duplicate detection when re-running the script.
+
 Output columns:
 
 - `date` — workout date (YYYY-MM-DD)

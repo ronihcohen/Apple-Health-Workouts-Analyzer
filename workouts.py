@@ -186,6 +186,9 @@ def extract_runs(in_csv: str) -> pd.DataFrame:
 
         runs.append({
             "date": pd.to_datetime(start).date() if pd.notna(start) else None,
+            # keep start/end in the output to enable precise duplicate detection when re-running
+            "startDate": start,
+            "endDate": end,
             "duration_min": duration,
             "distance_km": distance,
             "energy_cal": energy,
@@ -203,8 +206,49 @@ def main():
     args = parser.parse_args()
 
     out_df = extract_runs(args.input)
-    out_df.to_csv(args.output, index=False)
-    print(f"Wrote {len(out_df)} runs to {args.output}")
+    # If the output file exists, append only new workouts (avoid duplicates).
+    if pd.io.common.file_exists(args.output):
+        try:
+            existing = pd.read_csv(args.output, dtype=str)
+        except Exception:
+            existing = pd.DataFrame()
+
+        # Normalize types for comparison
+        if not existing.empty and "startDate" in existing.columns and "endDate" in existing.columns:
+            # Use start/end tuple matching when available
+            existing_keys = set(zip(existing["startDate"].astype(str), existing["endDate"].astype(str)))
+            def is_new_row(r):
+                k = (str(r.get("startDate")), str(r.get("endDate")))
+                return k not in existing_keys
+        else:
+            # Fallback: use (date, duration_min rounded, distance_km rounded) tuple
+            def round_or_none(x, ndigits):
+                try:
+                    return round(float(x), ndigits) if pd.notna(x) else None
+                except Exception:
+                    return None
+
+            if not existing.empty and "date" in existing.columns:
+                existing_keys = set()
+                for _, r in existing.iterrows():
+                    existing_keys.add((str(r.get("date")), round_or_none(r.get("duration_min"), 4), round_or_none(r.get("distance_km"), 5)))
+
+            def is_new_row(r):
+                key = (str(r.get("date")), round_or_none(r.get("duration_min"), 4), round_or_none(r.get("distance_km"), 5))
+                return key not in existing_keys
+
+        new_rows = [r for _, r in out_df.iterrows() if is_new_row(r)]
+        if new_rows:
+            new_df = pd.DataFrame(new_rows)
+            # preserve existing columns order and append any new columns
+            combined = pd.concat([existing, new_df], ignore_index=True, sort=False)
+            combined.to_csv(args.output, index=False)
+            print(f"Appended {len(new_df)} new run(s) to {args.output} (total {len(combined)})")
+        else:
+            print(f"No new runs to add to {args.output}")
+    else:
+        out_df.to_csv(args.output, index=False)
+        print(f"Wrote {len(out_df)} runs to {args.output}")
 
 
 if __name__ == "__main__":
