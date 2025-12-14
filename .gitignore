@@ -1,1 +1,4 @@
 .pytest_cache/
+data/
+__pytest_cache__
+out.csv

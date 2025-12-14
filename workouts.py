@@ -100,6 +100,14 @@ def extract_runs(in_csv: str) -> pd.DataFrame:
 
     workouts = df[df["workoutActivityType"].str.contains("HKWorkoutActivityTypeRunning", na=False)]
 
+    # Prepare body mass (weight) rows for proximity lookup
+    bodymass_rows = None
+    if "type" in df.columns:
+        bodymass_rows = df[df["type"] == "BodyMass"].copy()
+        # Require a valid startDate for matching and ensure it's datetime
+        if not bodymass_rows.empty:
+            bodymass_rows = bodymass_rows[pd.notna(bodymass_rows["startDate"])].copy()
+
     for _, w in workouts.iterrows():
         start = w.get("startDate")
         end = w.get("endDate")
@@ -184,6 +192,19 @@ def extract_runs(in_csv: str) -> pd.DataFrame:
                 seconds = 0
             pace_mmss = f"{minutes:02d}:{seconds:02d}"
 
+        # Weight: find nearest BodyMass within +/-7 days (choose the closest in time)
+        weight = None
+        if bodymass_rows is not None and not bodymass_rows.empty and pd.notna(start):
+            # compute absolute time difference and filter within 7 days
+            diffs = (bodymass_rows["startDate"] - pd.to_datetime(start)).abs()
+            within = diffs <= pd.Timedelta(days=7)
+            if within.any():
+                candidate = bodymass_rows[within].iloc[diffs[within].argmin()]
+                # get numeric from 'value' or 'sum'
+                weight_val = _get_numeric_from_row(candidate, ["value", "sum"])
+                if weight_val is not None:
+                    weight = float(weight_val)
+
         runs.append({
             "date": pd.to_datetime(start).date() if pd.notna(start) else None,
             # keep start/end in the output to enable precise duplicate detection when re-running
@@ -194,6 +215,7 @@ def extract_runs(in_csv: str) -> pd.DataFrame:
             "energy_cal": energy,
             "avg_hr": avg_hr,
             "pace_min_per_km": round(pace, 2) if pace is not None else None,
+            "weight_kg": weight,
         })
 
     return pd.DataFrame(runs)
