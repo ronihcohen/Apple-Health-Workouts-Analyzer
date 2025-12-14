@@ -4,7 +4,7 @@ A compact README that documents how to extract running workouts from an Apple He
 
 ## 🚀 Overview
 
-This small toolset reads Apple Health CSV exports and extracts running workouts with their associated metrics. It handles cases where metrics are split across multiple rows (interval overlap), where some metrics are stored in nonstandard columns, and prefers exact matches when available to avoid double-counting.
+This small toolset reads Apple Health CSV exports and extracts running workouts with their associated metrics. It is designed to work with the CSV output produced by jameno/Simple-Apple-Health-XML-to-CSV (https://github.com/jameno/Simple-Apple-Health-XML-to-CSV). It handles cases where metrics are split across multiple rows (interval overlap), where some metrics are stored in nonstandard columns, and prefers exact matches when available to avoid double-counting.
 
 ## ✨ Features
 
